@@ -1,25 +1,18 @@
 {
     "version": 2,
-    "builds": [
+    "buildCommand": "npm run build",
+    "installCommand": "npm install",
+    "framework": null,
+    "outputDirectory": "dist/public",
+    "rewrites": [
         {
-            "src": "server/index.ts",
-            "use": "@vercel/node",
-            "config": {
-                "includeFiles": [
-                    "dist/public/**",
-                    "data/**"
-                ]
-            }
+            "source": "/(.*)",
+            "destination": "/api/serverless"
         }
     ],
-    "routes": [
-        {
-            "src": "/api/(.*)",
-            "dest": "server/index.ts"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "server/index.ts"
+    "functions": {
+        "api/serverless.js": {
+            "includeFiles": "dist/**"
         }
-    ]
+    }
 }

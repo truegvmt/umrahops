@@ -1,0 +1,23 @@
+# Vercel Ignore - Files to exclude from deployment
+
+# Development files
+.env.example
+.replit
+run.md
+
+# Documentation (keep DEPLOYMENT.md)
+GAP_ANALYSIS.md
+IMPLEMENTATION_SUMMARY.md
+ai.md
+
+# Test files
+tests/
+
+# Scripts not needed in production
+scripts/rpa/
+scripts/startupCheck.ts
+
+# Development artifacts
+.DS_Store
+*.log
+*.tar.gz
