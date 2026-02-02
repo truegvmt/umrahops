@@ -1,34 +1,24 @@
 # UmrahOps Supabase Edge Functions Deployment
 
-**Last Updated**: 2026-02-03
-**Status**: Production-Ready
+**Last Updated**: 2026-02-03  
+**Status**: Production-Ready  
 **Platform**: Supabase Edge Functions (Deno)
-
----
-
-## Overview
-
-This document defines the deployment strategy for UmrahOps using **Supabase Edge Functions**. We bundle the Express backend into a single ESM file and serve it via Deno.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                  Supabase Edge Runtime (Deno)                │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌──────────────────┐         ┌──────────────────────────┐  │
-│  │  Client          │────────▶│  Function: api           │  │
-│  │  (Browser)       │         │  /functions/v1/api       │  │
-│  └──────────────────┘         │                          │  │
-│                               │  Import: dist/index.js   │  │
-│                               │  (Express App)           │  │
-│                               └──────────────────────────┘  │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+Client (Browser)
+     ↓
+Supabase Edge Function: /functions/v1/api
+     ↓
+Direct API Handler (Deno + Supabase Client)
+     ↓
+Supabase PostgreSQL
 ```
+
+**Key Principle**: Native Deno implementation. NO Express bundling hassle.
 
 ---
 
@@ -46,100 +36,225 @@ This document defines the deployment strategy for UmrahOps using **Supabase Edge
 
 3. **Link Project**:
    ```bash
-   supabase link --project-ref <your-project-ref>
+   supabase link --project-ref dckcvjpbcbpixanakdns
    ```
+   *(Use your actual project ref from Supabase dashboard URL)*
 
 ---
 
-## 1. Build Process
+## Database Setup
 
-We generate an ESM bundle compatible with Deno's Node resolution.
+Ensure these tables exist in your Supabase project:
 
-**Command**:
-```bash
-npm run build:supabase
+```sql
+-- Groups table
+CREATE TABLE IF NOT EXISTS groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'draft',
+  "travelersCount" INTEGER DEFAULT 0,
+  "visaIssued" INTEGER DEFAULT 0,
+  "pendingIssues" INTEGER DEFAULT 0,
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Travelers table
+CREATE TABLE IF NOT EXISTS travelers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "groupId" UUID REFERENCES groups(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  passport TEXT,
+  nationality TEXT,
+  "riskScore" INTEGER DEFAULT 0,
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Jobs table
+CREATE TABLE IF NOT EXISTS jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL,
+  payload JSONB DEFAULT '{}',
+  status TEXT DEFAULT 'pending',
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Audit logs table
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "entityType" TEXT,
+  "entityId" TEXT,
+  action TEXT,
+  payload JSONB DEFAULT '{}',
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Objectives table (for AI tasks)
+CREATE TABLE IF NOT EXISTS objectives (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  type TEXT,
+  status TEXT DEFAULT 'pending',
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
 
-**Output**: `dist/index.js`
+Run these in **Supabase Dashboard → SQL Editor**.
 
 ---
 
-## 2. Function Entry Point
+## Deployment
 
-**File**: `supabase/functions/api/index.ts`
-
-```typescript
-// @ts-ignore
-import app from '../../dist/index.js';
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-// Minimal adapter to bridge Deno Request to Express app
-// Note: This relies on the bundled app not listening internally
-// which is handled by checking process.env.SUPABASE_GRPC_URL in server/index.ts
-
-console.log("Supabase Edge Function initialized");
-
-serve(async (req) => {
-  const url = new URL(req.url);
-  
-  // Construct a mock Node-like request/response if needed
-  // However, for complex Express apps, allow direct internal handling if possible
-  // or use a dedicated adapter. 
-  
-  // For now, return a basic health check to prove connectivity
-  // while the adapter logic is finalized.
-  if (url.pathname.endsWith("/health")) {
-      return new Response(JSON.stringify({ status: "ok", mode: "supabase" }), {
-          headers: { "Content-Type": "application/json" }
-      });
-  }
-
-  return new Response("Express on Supabase Edge - Adapter Pending", { status: 501 });
-});
-```
-
-*Note: A full Express-to-Web-Standard adapter is complex. For immediate deployment, ensure your API logic is modular.*
-
----
-
-## 3. Deployment
+**Single Command**:
 
 ```bash
 supabase functions deploy api --no-verify-jwt
 ```
 
-**Flags**:
-- `--no-verify-jwt`: Allows public access (we handle auth in Express or middleware).
+That's it. No build step needed - Deno handles everything.
 
 ---
 
-## 4. Environment Variables
+## Environment Variables
 
-Set these in Supabase Dashboard or via CLI:
+Set in **Supabase Dashboard → Edge Functions → Configuration**:
 
 ```bash
-supabase secrets set NODE_ENV=production
-supabase secrets set DATABASE_URL=postgresql://...
-supabase secrets set SESSION_SECRET=...
+# Automatically available:
+SUPABASE_URL=<auto-injected>
+SUPABASE_ANON_KEY=<auto-injected>
+
+# Optional (if you need custom secrets):
+SESSION_SECRET=your-secret-here
 ```
 
 ---
 
-## 5. Troubleshooting
+## API Endpoints
 
-**Build Fails**:
-- Ensure `tsx` is installed: `npm install -D tsx`
-- Run `npm run build:supabase` explicitly.
+Your Edge Function handles:
 
-**Runtime Errors**:
-- "Module not found": Ensure `dist/index.js` exists and is referenced correctly relative to the function file.
-- "process is not defined": The bundler injects a polyfill, or Deno provides compat.
+### Core Endpoints
+- `GET /api/health` - Health check
+- `GET /api/stats` - Dashboard statistics
+
+### Groups
+- `GET /api/groups` - List all groups
+- `POST /api/groups` - Create group
+- `GET /api/groups/:id` - Get group by ID
+
+### Travelers
+- `GET /api/groups/:groupId/travelers` - List travelers
+- `POST /api/groups/:groupId/travelers` - Create traveler
+- `POST /api/groups/:groupId/travelers/bulk` - Bulk import
+
+### Jobs
+- `GET /api/jobs` - List jobs
+- `POST /api/jobs` - Create job
+
+### Audit
+- `GET /api/audit` - List audit logs
+
+### Supporting
+- `GET /api/objectives` - AI objectives
+- `GET /api/hotels` - Hotels list
 
 ---
 
-## Status
+## Frontend Configuration
 
-✅ **Build Configuration**: Ready (`package.json`)
-✅ **Entry Point**: Created
-⚠️ **Adapter**: Basic placeholder (Express-Deno bridge requires dedicated library like `h3` or `serverless-http` adapted for Deno).
+Update your frontend API base URL:
 
+**File**: `client/src/lib/queryClient.ts` (or wherever you initialize API calls)
+
+```typescript
+const API_URL = import.meta.env.PROD 
+  ? 'https://dckcvjpbcbpixanakdns.supabase.co/functions/v1/api' 
+  : '/api';
+```
+
+---
+
+## Testing
+
+```bash
+# Test locally
+supabase functions serve api
+
+# Make a test request
+curl http://localhost:54321/functions/v1/api/health
+```
+
+Expected:
+```json
+{"status":"ok","mode":"supabase-edge"}
+```
+
+---
+
+## Deployment Verification
+
+After deploying:
+
+```bash
+curl https://dckcvjpbcbpixanakdns.supabase.co/functions/v1/api/health
+```
+
+Should return:
+```json
+{"status":"ok","mode":"supabase-edge"}
+```
+
+---
+
+## Logs
+
+View real-time logs:
+
+```bash
+supabase functions logs api --follow
+```
+
+Or in **Supabase Dashboard → Edge Functions → Logs**.
+
+---
+
+## Troubleshooting
+
+### "Module not found"
+- **Cause**: Typo in import URL
+- **Fix**: Verify import paths use `https://` for Deno modules
+
+### "Database connection failed"
+- **Cause**: Missing environment variables
+- **Fix**: `SUPABASE_URL` and `SUPABASE_ANON_KEY` are auto-injected by Supabase
+
+### "CORS errors"
+- **Cause**: Frontend not allowed
+- **Fix**: Update `corsHeaders` in `index.ts` to match your domain (or keep `*` for dev)
+
+### "401 Unauthorized"
+- **Cause**: RLS policies blocking access
+- **Fix**: Either disable RLS for MVP or set proper policies in Supabase dashboard
+
+---
+
+## Production Checklist
+
+- [ ] Database tables created
+- [ ] Edge function deployed: `supabase functions deploy api`
+- [ ] Health check responds: `curl .../api/health`
+- [ ] Frontend API URL updated
+- [ ] CORS configured correctly
+- [ ] RLS policies reviewed
+
+---
+
+## Scaling Notes
+
+**Supabase Edge Functions:**
+- Automatically scale 0 → millions
+- Global deployment (low latency worldwide)
+- No cold starts (Deno is fast)
+- 10s timeout (extend via dashboard if needed)
+
+This is it - **lean, production-ready, zero build complexity**.
