@@ -17,19 +17,8 @@ serve(async (req) => {
 
     try {
         const url = new URL(req.url);
-        let path = url.pathname;
+        const path = url.pathname;
         const method = req.method;
-
-        // Normalization for Supabase Edge Function routing
-        // When deployed, path is /functions/v1/api/some/route
-        // We map it back to /api/some/route to match our logic
-        if (path.startsWith('/functions/v1/api')) {
-            path = path.replace('/functions/v1/api', '/api');
-            // Ensure it starts with /api if not already (e.g. if request was just /functions/v1/api/stats)
-            if (!path.startsWith('/api')) {
-                path = '/api' + path;
-            }
-        }
 
         // Initialize Supabase client
         const supabaseClient = createClient(
