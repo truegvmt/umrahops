@@ -6,13 +6,12 @@
     "outputDirectory": "dist/public",
     "rewrites": [
         {
+            "source": "/api/(.*)",
+            "destination": "https://arljvmqfxioxflewjmwp.supabase.co/functions/v1/api/$1"
+        },
+        {
             "source": "/(.*)",
-            "destination": "/api/serverless"
+            "destination": "/index.html"
         }
-    ],
-    "functions": {
-        "api/serverless.js": {
-            "includeFiles": "dist/**"
-        }
-    }
+    ]
 }
