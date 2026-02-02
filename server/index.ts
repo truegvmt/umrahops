@@ -89,8 +89,8 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ONLY listen if we are not on Vercel (Vercel handles the listener)
-  if (!process.env.VERCEL) {
+  // ONLY listen if we are not on Vercel or Supabase (they handle the listener)
+  if (!process.env.VERCEL && !process.env.SUPABASE_GRPC_URL) {
     const port = parseInt(process.env.PORT || "5000", 10);
     httpServer.listen(
       {

@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push",
     "db:init": "tsx src/db/init.ts",
     "startup-check": "tsx scripts/startupCheck.ts",
-    "jobs:process": "tsx scripts/jobProcessor.ts"
+    "jobs:process": "tsx scripts/jobProcessor.ts",
+    "build:supabase": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:better-sqlite3 --external:@node-rs/argon2 --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
