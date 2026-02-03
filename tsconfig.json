@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
       "@shared/*": [
@@ -12,6 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": false
+    "strict": false,
+    "resolveJsonModule": true
   }
 }

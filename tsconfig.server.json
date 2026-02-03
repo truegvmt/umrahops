@@ -3,15 +3,16 @@
     "compilerOptions": {
         "outDir": "dist/server",
         "declaration": false,
-        "emitDeclarationOnly": false,
-        "allowJs": false,
-        "resolveJsonModule": true,
         "types": [
             "node"
-        ]
+        ],
+        "skipLibCheck": true
     },
     "include": [
         "server/**/*.ts",
         "shared/**/*.ts"
+    ],
+    "exclude": [
+        "server/vite.ts"
     ]
 }

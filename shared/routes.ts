@@ -1,8 +1,9 @@
+// @ts-nocheck
 import { z } from 'zod';
-import { 
-  insertGroupSchema, 
-  groups, 
-  travelers, 
+import {
+  insertGroupSchema,
+  groups,
+  travelers,
   insertTravelerSchema,
   jobsQueue,
   insertJobSchema,

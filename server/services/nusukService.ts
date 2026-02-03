@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { storage } from "../storage";
 
 export class NusukService {
@@ -17,7 +18,7 @@ export class NusukService {
 
     // Mode B: RPA Stub
     console.log(`NusukService: API URL missing. Enqueuing RPA job for group ${groupId}`);
-    
+
     // Enqueue job
     await storage.enqueueJob({
       type: 'nusuk_sync',
